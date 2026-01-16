@@ -1,13 +1,923 @@
 <!DOCTYPE html>
-<html lang="">
-  <head>
+<html lang="zh-CN">
+<head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/cctt-read-gone.github.io/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
-    <script type="module" crossorigin src="/cctt-read-gone.github.io/assets/index-BO4wo6rL.js"></script>
-  </head>
-  <body>
-    <div id="app"></div>
-  </body>
+    <title>PeerJS 聊天室</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px);
+        }
+        
+        header {
+            background: linear-gradient(to right, #2575fc, #6a11cb);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 5px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        
+        .user-info {
+            background-color: #f0f5ff;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .peer-id-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .peer-id {
+            font-weight: bold;
+            background: #e6eeff;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 1rem;
+            border: 1px dashed #6a11cb;
+        }
+        
+        .connection-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .connection-controls input {
+            padding: 8px 15px;
+            border: 1px solid #6a11cb;
+            border-radius: 20px;
+            width: 200px;
+        }
+        
+        button {
+            background: linear-gradient(to right, #2575fc, #6a11cb);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 117, 252, 0.4);
+        }
+        
+        button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .chat-list {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f9fbff;
+        }
+        
+        .chat-message {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .message-sender {
+            font-weight: bold;
+            color: #2575fc;
+        }
+        
+        .message-time {
+            color: #999;
+        }
+        
+        .message-content {
+            background: white;
+            padding: 12px 18px;
+            border-radius: 18px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            max-width: 80%;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .own-message {
+            align-items: flex-end;
+        }
+        
+        .own-message .message-content {
+            background: linear-gradient(to right, #6a11cb, #2575fc);
+            color: white;
+            border-top-right-radius: 5px;
+        }
+        
+        .other-message {
+            align-items: flex-start;
+        }
+        
+        .other-message .message-content {
+            border-top-left-radius: 5px;
+            background: white;
+            color: #333;
+        }
+        
+        .message-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            margin-top: 5px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .message-image:hover {
+            transform: scale(1.02);
+        }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .text-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .text-input-container textarea {
+            flex: 1;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            resize: none;
+            font-size: 1rem;
+            height: 60px;
+            outline: none;
+            transition: border 0.3s;
+        }
+        
+        .text-input-container textarea:focus {
+            border-color: #6a11cb;
+        }
+        
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-upload {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .file-label {
+            background: #f0f5ff;
+            color: #6a11cb;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+        
+        .file-label:hover {
+            background: #e6eeff;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .image-preview {
+            max-width: 100px;
+            max-height: 60px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .send-button {
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connected-users {
+            background: #f0f5ff;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connected-users span {
+            font-weight: bold;
+            color: #6a11cb;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .connected {
+            background-color: #4CAF50;
+        }
+        
+        .disconnected {
+            background-color: #F44336;
+        }
+        
+        .empty-chat {
+            text-align: center;
+            padding: 50px 20px;
+            color: #999;
+        }
+        
+        .empty-chat i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #ddd;
+        }
+        
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+        }
+        
+        .modal-image {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 10px;
+        }
+        
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                height: 100vh;
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            body {
+                padding: 0;
+            }
+            
+            .user-info {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+            
+            .connection-controls {
+                width: 100%;
+            }
+            
+            .connection-controls input {
+                flex: 1;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+            
+            .send-button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-comments"></i> PeerJS 聊天室</h1>
+            <p>点对点聊天 - 无需登录，直接连接</p>
+        </header>
+        
+        <div class="user-info">
+            <div class="peer-id-container">
+                <span>您的ID：</span>
+                <div class="peer-id" id="myPeerId">正在生成...</div>
+                <div class="status-indicator disconnected" id="connectionStatus"></div>
+                <span id="statusText">未连接</span>
+            </div>
+            
+            <div class="connection-controls">
+                <input type="text" id="remotePeerId" placeholder="输入对方ID进行连接">
+                <button id="connectButton">连接</button>
+                <button id="disconnectButton" disabled>断开连接</button>
+            </div>
+        </div>
+        
+        <div class="connected-users">
+            <i class="fas fa-users"></i>
+            已连接用户：<span id="connectedCount">0</span>
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-list" id="chatList">
+                <div class="empty-chat" id="emptyChatMessage">
+                    <i class="fas fa-comment-slash"></i>
+                    <h3>聊天室是空的</h3>
+                    <p>连接另一位用户开始聊天</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <div class="text-input-container">
+                <textarea id="messageInput" placeholder="输入消息... (按Ctrl+Enter发送)" rows="1"></textarea>
+            </div>
+            
+            <div class="action-buttons">
+                <div class="file-upload">
+                    <label for="fileInput" class="file-label">
+                        <i class="fas fa-image"></i> 选择图片
+                    </label>
+                    <input type="file" id="fileInput" accept="image/*">
+                    <img id="imagePreview" class="image-preview" alt="图片预览">
+                </div>
+                
+                <button id="sendButton" class="send-button">
+                    <i class="fas fa-paper-plane"></i> 发送消息
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图片预览模态框 -->
+    <div class="modal" id="imageModal">
+        <span class="close-modal">&times;</span>
+        <div class="modal-content">
+            <img class="modal-image" id="modalImage" src="" alt="预览图片">
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let peer = null;
+        let conn = null;
+        let myPeerId = '';
+        let connectedUsers = new Set();
+        let messages = [];
+        
+        // DOM元素
+        const myPeerIdElement = document.getElementById('myPeerId');
+        const remotePeerIdInput = document.getElementById('remotePeerId');
+        const connectButton = document.getElementById('connectButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const chatList = document.getElementById('chatList');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const emptyChatMessage = document.getElementById('emptyChatMessage');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const statusText = document.getElementById('statusText');
+        const connectedCount = document.getElementById('connectedCount');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const closeModal = document.querySelector('.close-modal');
+        
+        // 页面加载时初始化Peer
+        window.addEventListener('DOMContentLoaded', initPeer);
+        
+        // 初始化PeerJS连接
+        function initPeer() {
+            // 生成随机ID（简化版本，实际中可能冲突）
+            const randomId = 'user_' + Math.random().toString(36).substring(2, 9);
+            
+            // 创建Peer实例
+            peer = new Peer(randomId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                debug: 3
+            });
+            
+            // Peer打开事件
+            peer.on('open', function(id) {
+                myPeerId = id;
+                myPeerIdElement.textContent = id;
+                updateConnectionStatus(true);
+                console.log('我的Peer ID: ' + id);
+                
+                // 添加欢迎消息
+                addMessage({
+                    type: 'text',
+                    content: '欢迎使用PeerJS聊天室！您的ID是：' + id,
+                    sender: '系统',
+                    timestamp: new Date(),
+                    isOwn: false
+                });
+            });
+            
+            // Peer连接事件
+            peer.on('connection', function(connection) {
+                console.log('收到连接请求: ', connection.peer);
+                
+                // 接受连接
+                conn = connection;
+                setupConnection(conn);
+                
+                // 添加到已连接用户集合
+                connectedUsers.add(conn.peer);
+                updateConnectedCount();
+                
+                // 更新连接状态
+                updateConnectionStatus(true, conn.peer);
+            });
+            
+            // Peer错误事件
+            peer.on('error', function(err) {
+                console.error('PeerJS错误: ', err);
+                updateConnectionStatus(false);
+                
+                // 显示错误消息
+                addMessage({
+                    type: 'text',
+                    content: '连接错误: ' + err.message,
+                    sender: '系统',
+                    timestamp: new Date(),
+                    isOwn: false
+                });
+            });
+            
+            // 设置事件监听器
+            setupEventListeners();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 连接按钮点击事件
+            connectButton.addEventListener('click', function() {
+                const remoteId = remotePeerIdInput.value.trim();
+                if (remoteId && remoteId !== myPeerId) {
+                    connectToPeer(remoteId);
+                } else {
+                    alert('请输入有效的对方ID（不能是自己的ID）');
+                }
+            });
+            
+            // 断开连接按钮点击事件
+            disconnectButton.addEventListener('click', function() {
+                if (conn) {
+                    conn.close();
+                    conn = null;
+                    connectedUsers.clear();
+                    updateConnectedCount();
+                    updateConnectionStatus(false);
+                    
+                    addMessage({
+                        type: 'text',
+                        content: '已断开连接',
+                        sender: '系统',
+                        timestamp: new Date(),
+                        isOwn: false
+                    });
+                }
+            });
+            
+            // 发送按钮点击事件
+            sendButton.addEventListener('click', sendMessage);
+            
+            // 按Enter发送消息（Ctrl+Enter换行）
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.ctrlKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // 文件选择事件
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    // 显示预览
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        imagePreview.src = event.target.result;
+                        imagePreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else if (file) {
+                    alert('请选择图片文件');
+                    fileInput.value = '';
+                }
+            });
+            
+            // 图片预览点击事件
+            imagePreview.addEventListener('click', function() {
+                fileInput.value = '';
+                imagePreview.style.display = 'none';
+            });
+            
+            // 模态框关闭事件
+            closeModal.addEventListener('click', function() {
+                imageModal.style.display = 'none';
+            });
+            
+            // 点击模态框背景关闭
+            imageModal.addEventListener('click', function(e) {
+                if (e.target === imageModal) {
+                    imageModal.style.display = 'none';
+                }
+            });
+        }
+        
+        // 连接到指定Peer
+        function connectToPeer(remoteId) {
+            if (conn) {
+                conn.close();
+            }
+            
+            // 建立连接
+            conn = peer.connect(remoteId, {
+                reliable: true
+            });
+            
+            setupConnection(conn);
+            
+            // 添加到已连接用户集合
+            connectedUsers.add(remoteId);
+            updateConnectedCount();
+            
+            // 更新连接状态
+            updateConnectionStatus(true, remoteId);
+            
+            // 显示连接消息
+            addMessage({
+                type: 'text',
+                content: '正在连接到 ' + remoteId + '...',
+                sender: '系统',
+                timestamp: new Date(),
+                isOwn: false
+            });
+        }
+        
+        // 设置连接事件处理
+        function setupConnection(connection) {
+            // 连接打开事件
+            connection.on('open', function() {
+                console.log('连接已建立: ', connection.peer);
+                
+                addMessage({
+                    type: 'text',
+                    content: '已连接到 ' + connection.peer,
+                    sender: '系统',
+                    timestamp: new Date(),
+                    isOwn: false
+                });
+                
+                // 发送自己的ID给对方
+                connection.send({
+                    type: 'info',
+                    content: myPeerId,
+                    sender: myPeerId,
+                    timestamp: new Date()
+                });
+            });
+            
+            // 接收数据事件
+            connection.on('data', function(data) {
+                console.log('收到数据: ', data);
+                
+                // 处理接收到的消息
+                if (data.type === 'text' || data.type === 'image') {
+                    addMessage({
+                        type: data.type,
+                        content: data.content,
+                        sender: data.sender,
+                        timestamp: new Date(data.timestamp),
+                        isOwn: false
+                    });
+                } else if (data.type === 'info') {
+                    // 对方发送的ID信息
+                    console.log('对方ID: ', data.content);
+                }
+            });
+            
+            // 连接关闭事件
+            connection.on('close', function() {
+                console.log('连接已关闭');
+                
+                // 从已连接用户集合中移除
+                connectedUsers.delete(connection.peer);
+                updateConnectedCount();
+                
+                // 如果当前连接是关闭的连接，则清空
+                if (conn === connection) {
+                    conn = null;
+                    updateConnectionStatus(false);
+                }
+                
+                addMessage({
+                    type: 'text',
+                    content: '与 ' + connection.peer + ' 的连接已断开',
+                    sender: '系统',
+                    timestamp: new Date(),
+                    isOwn: false
+                });
+            });
+            
+            // 连接错误事件
+            connection.on('error', function(err) {
+                console.error('连接错误: ', err);
+                
+                addMessage({
+                    type: 'text',
+                    content: '连接错误: ' + err.message,
+                    sender: '系统',
+                    timestamp: new Date(),
+                    isOwn: false
+                });
+            });
+        }
+        
+        // 发送消息
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            const file = fileInput.files[0];
+            
+            // 如果没有文本且没有图片，则不发送
+            if (!text && !file) {
+                return;
+            }
+            
+            // 如果没有连接，则提示
+            if (!conn) {
+                alert('请先连接一位用户');
+                return;
+            }
+            
+            // 发送文本消息
+            if (text) {
+                const messageData = {
+                    type: 'text',
+                    content: text,
+                    sender: myPeerId,
+                    timestamp: new Date()
+                };
+                
+                // 发送给对方
+                conn.send(messageData);
+                
+                // 添加到自己的消息列表
+                addMessage({
+                    type: 'text',
+                    content: text,
+                    sender: myPeerId,
+                    timestamp: new Date(),
+                    isOwn: true
+                });
+                
+                // 清空输入框
+                messageInput.value = '';
+            }
+            
+            // 发送图片
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const imageData = event.target.result;
+                    
+                    const messageData = {
+                        type: 'image',
+                        content: imageData,
+                        sender: myPeerId,
+                        timestamp: new Date()
+                    };
+                    
+                    // 发送给对方
+                    conn.send(messageData);
+                    
+                    // 添加到自己的消息列表
+                    addMessage({
+                        type: 'image',
+                        content: imageData,
+                        sender: myPeerId,
+                        timestamp: new Date(),
+                        isOwn: true
+                    });
+                    
+                    // 清空图片预览
+                    imagePreview.style.display = 'none';
+                    fileInput.value = '';
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            // 自动滚动到底部
+            scrollToBottom();
+        }
+        
+        // 添加消息到聊天列表
+        function addMessage(message) {
+            // 隐藏空聊天提示
+            emptyChatMessage.style.display = 'none';
+            
+            // 创建消息元素
+            const messageElement = document.createElement('div');
+            messageElement.className = `chat-message ${message.isOwn ? 'own-message' : 'other-message'}`;
+            
+            // 格式化时间
+            const timeString = message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            // 设置消息内容
+            let contentHTML = '';
+            if (message.type === 'text') {
+                contentHTML = `<div class="message-content">${escapeHtml(message.content)}</div>`;
+            } else if (message.type === 'image') {
+                contentHTML = `
+                    <div class="message-content">
+                        <div>发送了一张图片：</div>
+                        <img src="${message.content}" class="message-image" alt="聊天图片" onclick="openImageModal('${message.content}')">
+                    </div>
+                `;
+            }
+            
+            messageElement.innerHTML = `
+                <div class="message-header">
+                    <span class="message-sender">${message.sender === myPeerId ? '我' : (message.sender === '系统' ? '系统' : '用户')}</span>
+                    <span class="message-time">${timeString}</span>
+                </div>
+                ${contentHTML}
+            `;
+            
+            // 添加到消息列表
+            chatList.appendChild(messageElement);
+            
+            // 保存到消息数组
+            messages.push(message);
+            
+            // 自动滚动到底部
+            scrollToBottom();
+        }
+        
+        // 打开图片模态框
+        function openImageModal(imageSrc) {
+            modalImage.src = imageSrc;
+            imageModal.style.display = 'flex';
+        }
+        
+        // 更新连接状态
+        function updateConnectionStatus(isConnected, remotePeer = null) {
+            if (isConnected) {
+                connectionStatus.className = 'status-indicator connected';
+                statusText.textContent = remotePeer ? `已连接到 ${remotePeer}` : '已就绪';
+                connectButton.disabled = true;
+                disconnectButton.disabled = false;
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+            } else {
+                connectionStatus.className = 'status-indicator disconnected';
+                statusText.textContent = '未连接';
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+            }
+        }
+        
+        // 更新已连接用户计数
+        function updateConnectedCount() {
+            connectedCount.textContent = connectedUsers.size;
+        }
+        
+        // 滚动到底部
+        function scrollToBottom() {
+            chatList.scrollTop = chatList.scrollHeight;
+        }
+        
+        // 转义HTML特殊字符
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 添加示例消息
+        function addSampleMessages() {
+            setTimeout(() => {
+                addMessage({
+                    type: 'text',
+                    content: '将您的ID分享给朋友，然后输入朋友的ID并点击"连接"按钮开始聊天',
+                    sender: '系统',
+                    timestamp: new Date(),
+                    isOwn: false
+                });
+                
+                addMessage({
+                    type: 'text',
+                    content: '您可以发送文本消息和图片，所有消息都是点对点传输，不会经过服务器',
+                    sender: '系统',
+                    timestamp: new Date(Date.now() + 1000),
+                    isOwn: false
+                });
+            }, 1000);
+        }
+        
+        // 初始化示例消息
+        addSampleMessages();
+    </script>
+</body>
 </html>
