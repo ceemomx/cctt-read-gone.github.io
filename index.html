@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS 聊天室 - 支持多服务器和STUN选择</title>
+    <title>PeerJS 聊天室 - 统一服务器配置</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
@@ -71,12 +71,8 @@
             display: flex;
             flex-direction: column;
             gap: 5px;
-            min-width: 200px;
-            flex: 1;
-        }
-        
-        .setting-group.stun-group {
             min-width: 300px;
+            flex: 1;
         }
         
         .setting-label {
@@ -110,7 +106,8 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            flex: 2;
+            flex: 1;
+            min-width: 400px;
         }
         
         .peer-id {
@@ -316,13 +313,13 @@
             color: #999;
         }
         
-        .stun-controls {
+        .server-controls {
             display: flex;
             gap: 10px;
             align-items: center;
         }
         
-        .stun-status {
+        .server-status {
             font-size: 0.8rem;
             color: #666;
         }
@@ -333,6 +330,24 @@
             font-size: 0.9rem;
         }
         
+        .custom-config-group {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        .custom-config-group .setting-group {
+            min-width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .custom-config-group .setting-group:last-child {
+            margin-bottom: 0;
+        }
+        
         @media (max-width: 1024px) {
             .settings-row {
                 flex-direction: column;
@@ -340,6 +355,10 @@
             }
             
             .setting-group {
+                min-width: 100%;
+            }
+            
+            .peer-id-container {
                 min-width: 100%;
             }
             
@@ -362,61 +381,83 @@
     <div class="container">
         <header>
             <h1><i class="fas fa-comments"></i> PeerJS 聊天室</h1>
-            <p>支持多服务器和STUN服务器选择</p>
+            <p>统一服务器配置的P2P聊天</p>
         </header>
         
         <div class="settings-panel">
             <div class="settings-row">
                 <div class="setting-group">
                     <div class="setting-label">
-                        <i class="fas fa-server"></i> 信令服务器
+                        <i class="fas fa-server"></i> 服务器配置
+                        <i class="fas fa-info-circle info-icon" title="选择完整的服务器配置，包括信令服务器和STUN/TURN服务器"></i>
                     </div>
-                    <select id="serverSelect">
-                        <option value="0.peerjs.com">官方服务器1 (0.peerjs.com)</option>
-                        <option value="1.peerjs.com">官方服务器2 (1.peerjs.com)</option>
-                        <option value="2.peerjs.com">官方服务器3 (2.peerjs.com)</option>
-                        <option value="3.peerjs.com">官方服务器4 (3.peerjs.com)</option>
-                        <option value="custom">自定义服务器</option>
-                    </select>
-                </div>
-                
-                <div class="setting-group" id="customServerGroup" style="display: none;">
-                    <div class="setting-label">
-                        <i class="fas fa-cog"></i> 自定义服务器地址
-                    </div>
-                    <input type="text" id="customServerInput" placeholder="例如: localhost:9000">
-                </div>
-                
-                <div class="setting-group stun-group">
-                    <div class="setting-label">
-                        <i class="fas fa-sync-alt"></i> STUN服务器
-                        <i class="fas fa-info-circle info-icon" title="STUN服务器用于NAT穿透，帮助建立P2P连接"></i>
-                    </div>
-                    <div class="stun-controls">
-                        <select id="stunSelect" style="flex: 1;">
-                            <option value="default">默认STUN服务器</option>
-                            <option value="custom">自定义STUN服务器</option>
+                    <div class="server-controls">
+                        <select id="serverConfigSelect" style="flex: 1;">
+                            <option value="default">默认配置 (官方服务器 + Google STUN)</option>
+                            <option value="official1">官方服务器1 + Google STUN</option>
+                            <option value="official2">官方服务器2 + Google STUN</option>
+                            <option value="official3">官方服务器3 + Google STUN</option>
+                            <option value="official4">官方服务器4 + Google STUN</option>
+                            <option value="custom">自定义配置</option>
+                            <option value="public_stun">使用公共STUN服务器列表</option>
                         </select>
-                        <button id="loadStunButton" class="small">
-                            <i class="fas fa-download"></i> 加载列表
+                        <button id="refreshStunButton" class="small">
+                            <i class="fas fa-sync-alt"></i> 刷新STUN列表
                         </button>
                     </div>
                 </div>
-            </div>
-            
-            <div class="settings-row">
+                
                 <div class="peer-id-container">
                     <span>您的ID：</span>
                     <div class="peer-id" id="myPeerId">等待连接服务器...</div>
                     <div class="status-indicator disconnected" id="connectionStatus"></div>
                     <span id="statusText">未连接</span>
                 </div>
-                
-                <div class="setting-group" id="customStunGroup" style="display: none;">
-                    <div class="setting-label">
-                        <i class="fas fa-network-wired"></i> 自定义STUN服务器
+            </div>
+            
+            <div class="custom-config-group" id="customConfigGroup">
+                <div class="settings-row">
+                    <div class="setting-group">
+                        <div class="setting-label">
+                            <i class="fas fa-broadcast-tower"></i> 信令服务器
+                        </div>
+                        <select id="signalingServerSelect">
+                            <option value="0.peerjs.com:443">官方服务器1 (0.peerjs.com:443)</option>
+                            <option value="1.peerjs.com:443">官方服务器2 (1.peerjs.com:443)</option>
+                            <option value="2.peerjs.com:443">官方服务器3 (2.peerjs.com:443)</option>
+                            <option value="3.peerjs.com:443">官方服务器4 (3.peerjs.com:443)</option>
+                            <option value="custom">自定义信令服务器</option>
+                        </select>
                     </div>
-                    <input type="text" id="customStunInput" placeholder="例如: stun.l.google.com:19302">
+                    
+                    <div class="setting-group" id="customSignalingGroup" style="display: none;">
+                        <div class="setting-label">
+                            <i class="fas fa-cog"></i> 自定义信令服务器
+                        </div>
+                        <input type="text" id="customSignalingInput" placeholder="例如: localhost:9000">
+                    </div>
+                    
+                    <div class="setting-group">
+                        <div class="setting-label">
+                            <i class="fas fa-sync-alt"></i> STUN/TURN服务器
+                        </div>
+                        <select id="stunServerSelect">
+                            <option value="google">Google公共STUN服务器</option>
+                            <option value="custom_stun">自定义STUN服务器</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="settings-row">
+                    <div class="setting-group" id="customStunGroup" style="display: none;">
+                        <div class="setting-label">
+                            <i class="fas fa-network-wired"></i> 自定义STUN/TURN服务器
+                        </div>
+                        <input type="text" id="customStunInput" placeholder="例如: stun.l.google.com:19302">
+                        <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+                            格式: stun:host:port 或 turn:host:port (多个用逗号分隔)
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -430,12 +471,8 @@
         
         <div class="server-info">
             <i class="fas fa-server"></i>
-            当前服务器：<span id="currentServerInfo">未选择</span>
-            <span style="margin-left: 20px;">
-                <i class="fas fa-sync-alt"></i>
-                STUN服务器：<span id="currentStunInfo">默认</span>
-            </span>
-            <span class="stun-status" id="stunStatus"></span>
+            当前配置：<span id="currentServerInfo">默认配置</span>
+            <span class="server-status" id="serverStatus"></span>
         </div>
         
         <div class="chat-container">
@@ -471,68 +508,104 @@
     <script>
         // 服务器配置
         const serverConfigs = {
-            '0.peerjs.com': {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                description: '官方服务器1 (0.peerjs.com)'
+            'default': {
+                signaling: {
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    description: '官方服务器1'
+                },
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" },
+                    { urls: "stun:stun2.l.google.com:19302" },
+                    { urls: "stun:stun3.l.google.com:19302" },
+                    { urls: "stun:stun4.l.google.com:19302" }
+                ],
+                description: '默认配置 (官方服务器1 + Google STUN)'
             },
-            '1.peerjs.com': {
-                host: '1.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                description: '官方服务器2 (1.peerjs.com)'
+            'official1': {
+                signaling: {
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    description: '官方服务器1'
+                },
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ],
+                description: '官方服务器1 + Google STUN'
             },
-            '2.peerjs.com': {
-                host: '2.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                description: '官方服务器3 (2.peerjs.com)'
+            'official2': {
+                signaling: {
+                    host: '1.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    description: '官方服务器2'
+                },
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ],
+                description: '官方服务器2 + Google STUN'
             },
-            '3.peerjs.com': {
-                host: '3.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                description: '官方服务器4 (3.peerjs.com)'
+            'official3': {
+                signaling: {
+                    host: '2.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    description: '官方服务器3'
+                },
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ],
+                description: '官方服务器3 + Google STUN'
+            },
+            'official4': {
+                signaling: {
+                    host: '3.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    description: '官方服务器4'
+                },
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ],
+                description: '官方服务器4 + Google STUN'
             }
         };
         
-        // STUN服务器列表
-        let stunServers = [];
-        let loadedStunServers = [];
-        
-        // 默认STUN服务器（Google的公共STUN服务器）
-        const defaultStunServers = [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-            { urls: "stun:stun2.l.google.com:19302" },
-            { urls: "stun:stun3.l.google.com:19302" },
-            { urls: "stun:stun4.l.google.com:19302" }
-        ];
+        // 公共STUN服务器列表
+        let publicStunServers = [];
+        let publicStunLoaded = false;
         
         // 应用状态
         let peer = null;
         let activeConnection = null;
         let myPeerId = '';
-        let currentServer = '';
-        let currentStun = '默认';
+        let currentConfig = 'default';
         
         // DOM元素
-        const serverSelect = document.getElementById('serverSelect');
-        const customServerGroup = document.getElementById('customServerGroup');
-        const customServerInput = document.getElementById('customServerInput');
-        const stunSelect = document.getElementById('stunSelect');
+        const serverConfigSelect = document.getElementById('serverConfigSelect');
+        const customConfigGroup = document.getElementById('customConfigGroup');
+        const refreshStunButton = document.getElementById('refreshStunButton');
+        const signalingServerSelect = document.getElementById('signalingServerSelect');
+        const customSignalingGroup = document.getElementById('customSignalingGroup');
+        const customSignalingInput = document.getElementById('customSignalingInput');
+        const stunServerSelect = document.getElementById('stunServerSelect');
         const customStunGroup = document.getElementById('customStunGroup');
         const customStunInput = document.getElementById('customStunInput');
-        const loadStunButton = document.getElementById('loadStunButton');
         const myPeerIdElement = document.getElementById('myPeerId');
         const currentServerInfo = document.getElementById('currentServerInfo');
-        const currentStunInfo = document.getElementById('currentStunInfo');
-        const stunStatus = document.getElementById('stunStatus');
+        const serverStatus = document.getElementById('serverStatus');
         const connectButton = document.getElementById('connectButton');
         const disconnectButton = document.getElementById('disconnectButton');
         const reconnectButton = document.getElementById('reconnectButton');
@@ -546,32 +619,35 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
-            loadStunServersFromGitHub(); // 尝试加载STUN服务器列表
-            initializePeer(); // 使用默认服务器初始化
+            loadPublicStunServers(); // 加载公共STUN服务器列表
+            initializePeer(); // 初始化Peer连接
         });
         
-        // 从GitHub加载STUN服务器列表
-        async function loadStunServersFromGitHub() {
+        // 从GitHub加载公共STUN服务器列表
+        async function loadPublicStunServers() {
             try {
-                stunStatus.textContent = '正在加载STUN服务器列表...';
+                serverStatus.textContent = '正在加载公共STUN服务器列表...';
                 const response = await fetch('https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt');
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`HTTP错误! 状态: ${response.status}`);
                 }
                 
                 const text = await response.text();
-                loadedStunServers = parseStunServers(text);
+                publicStunServers = parseStunServers(text);
+                publicStunLoaded = true;
                 
-                // 更新STUN选择下拉框
-                updateStunSelect();
+                serverStatus.textContent = `已加载 ${publicStunServers.length} 个公共STUN服务器`;
+                addMessage('系统', `已加载 ${publicStunServers.length} 个公共STUN服务器`, false);
                 
-                stunStatus.textContent = `已加载 ${loadedStunServers.length} 个STUN服务器`;
-                addMessage('系统', `已加载 ${loadedStunServers.length} 个STUN服务器`, false);
+                // 如果当前选择了"使用公共STUN服务器列表"选项，更新配置
+                if (serverConfigSelect.value === 'public_stun') {
+                    updateStunSelectWithPublicServers();
+                }
                 
             } catch (error) {
-                console.error('加载STUN服务器失败:', error);
-                stunStatus.textContent = '加载STUN服务器失败，使用默认STUN服务器';
-                addMessage('系统', '加载STUN服务器失败，使用默认STUN服务器', false);
+                console.error('加载公共STUN服务器失败:', error);
+                serverStatus.textContent = '加载公共STUN服务器失败';
+                addMessage('系统', '加载公共STUN服务器失败', false);
             }
         }
         
@@ -590,7 +666,8 @@
                             servers.push({
                                 host: host.trim(),
                                 port: parseInt(port.trim()),
-                                display: line
+                                display: line,
+                                url: `stun:${host.trim()}:${port.trim()}`
                             });
                         }
                     }
@@ -600,87 +677,216 @@
             return servers;
         }
         
-        // 更新STUN选择下拉框
-        function updateStunSelect() {
-            // 清空现有选项（保留默认和自定义选项）
-            const defaultOption = stunSelect.options[0];
-            const customOption = stunSelect.options[1];
-            stunSelect.innerHTML = '';
-            stunSelect.appendChild(defaultOption);
-            stunSelect.appendChild(customOption);
+        // 使用公共STUN服务器更新STUN选择框
+        function updateStunSelectWithPublicServers() {
+            // 清空现有选项
+            stunServerSelect.innerHTML = '<option value="google">Google公共STUN服务器</option>';
             
-            // 添加加载的STUN服务器
-            loadedStunServers.forEach((server, index) => {
-                if (index < 50) { // 限制显示前50个，避免下拉框太长
+            // 添加公共STUN服务器选项
+            publicStunServers.forEach((server, index) => {
+                if (index < 30) { // 限制显示前30个，避免下拉框太长
                     const option = document.createElement('option');
-                    option.value = server.display;
+                    option.value = server.url;
                     option.textContent = `STUN: ${server.display}`;
-                    stunSelect.appendChild(option);
+                    stunServerSelect.appendChild(option);
                 }
             });
             
-            if (loadedStunServers.length > 50) {
+            if (publicStunServers.length > 30) {
                 const option = document.createElement('option');
                 option.value = 'more';
-                option.textContent = `...还有 ${loadedStunServers.length - 50} 个服务器`;
+                option.textContent = `...还有 ${publicStunServers.length - 30} 个服务器`;
                 option.disabled = true;
-                stunSelect.appendChild(option);
+                stunServerSelect.appendChild(option);
             }
+            
+            // 添加自定义选项
+            const customOption = document.createElement('option');
+            customOption.value = 'custom_stun';
+            customOption.textContent = '自定义STUN/TURN服务器';
+            stunServerSelect.appendChild(customOption);
         }
         
-        // 获取当前选择的STUN服务器配置
-        function getStunConfig() {
-            const selectedStun = stunSelect.value;
+        // 获取当前配置
+        function getCurrentConfig() {
+            const selectedConfig = serverConfigSelect.value;
             
-            if (selectedStun === 'default') {
-                currentStun = '默认';
-                currentStunInfo.textContent = currentStun;
-                return defaultStunServers;
+            // 如果是预设配置
+            if (serverConfigs[selectedConfig]) {
+                return serverConfigs[selectedConfig];
             }
-            else if (selectedStun === 'custom') {
+            
+            // 如果是自定义配置
+            if (selectedConfig === 'custom') {
+                return getCustomConfig();
+            }
+            
+            // 如果是公共STUN配置
+            if (selectedConfig === 'public_stun') {
+                return getPublicStunConfig();
+            }
+            
+            // 默认返回default配置
+            return serverConfigs.default;
+        }
+        
+        // 获取自定义配置
+        function getCustomConfig() {
+            const signalingServer = signalingServerSelect.value;
+            let signalingConfig;
+            
+            if (signalingServer === 'custom') {
+                const customServer = customSignalingInput.value.trim();
+                if (!customServer) {
+                    // 如果没有自定义服务器，使用默认
+                    return serverConfigs.default;
+                }
+                
+                const parts = customServer.split(':');
+                signalingConfig = {
+                    host: parts[0],
+                    port: parts[1] ? parseInt(parts[1]) : 9000,
+                    path: '/peerjs',
+                    secure: false,
+                    description: `自定义服务器 (${customServer})`
+                };
+            } else {
+                const [host, port] = signalingServer.split(':');
+                signalingConfig = {
+                    host: host,
+                    port: parseInt(port),
+                    path: '/',
+                    secure: true,
+                    description: `${host}:${port}`
+                };
+            }
+            
+            // 获取STUN配置
+            const stunServer = stunServerSelect.value;
+            let iceServers;
+            
+            if (stunServer === 'google') {
+                iceServers = [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ];
+            } else if (stunServer === 'custom_stun') {
                 const customStun = customStunInput.value.trim();
                 if (customStun) {
-                    // 解析自定义STUN服务器
-                    const [host, port] = customStun.includes(':') ? customStun.split(':') : [customStun, '3478'];
-                    currentStun = customStun;
-                    currentStunInfo.textContent = currentStun;
-                    return [{ urls: `stun:${host}:${port}` }];
+                    // 解析多个STUN/TURN服务器
+                    iceServers = customStun.split(',').map(server => {
+                        server = server.trim();
+                        return { urls: server };
+                    });
                 } else {
-                    // 如果没有自定义STUN，使用默认
-                    return defaultStunServers;
+                    // 如果没有自定义STUN，使用Google
+                    iceServers = [
+                        { urls: "stun:stun.l.google.com:19302" },
+                        { urls: "stun:stun1.l.google.com:19302" }
+                    ];
                 }
-            }
-            else {
+            } else {
                 // 使用选择的STUN服务器
-                const [host, port] = selectedStun.split(':');
-                currentStun = selectedStun;
-                currentStunInfo.textContent = currentStun;
-                return [{ urls: `stun:${host}:${port}` }];
+                iceServers = [{ urls: stunServer }];
             }
+            
+            return {
+                signaling: signalingConfig,
+                iceServers: iceServers,
+                description: `自定义配置`
+            };
+        }
+        
+        // 获取公共STUN配置
+        function getPublicStunConfig() {
+            // 使用官方服务器1作为信令服务器
+            const signalingConfig = {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                description: '官方服务器1'
+            };
+            
+            // 使用公共STUN服务器
+            let iceServers;
+            const selectedStun = stunServerSelect.value;
+            
+            if (selectedStun === 'google') {
+                iceServers = [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" }
+                ];
+            } else if (selectedStun === 'custom_stun') {
+                const customStun = customStunInput.value.trim();
+                if (customStun) {
+                    iceServers = customStun.split(',').map(server => {
+                        server = server.trim();
+                        return { urls: server };
+                    });
+                } else {
+                    iceServers = [
+                        { urls: "stun:stun.l.google.com:19302" },
+                        { urls: "stun:stun1.l.google.com:19302" }
+                    ];
+                }
+            } else {
+                iceServers = [{ urls: selectedStun }];
+            }
+            
+            return {
+                signaling: signalingConfig,
+                iceServers: iceServers,
+                description: `公共STUN配置`
+            };
         }
         
         // 设置事件监听器
         function setupEventListeners() {
-            // 服务器选择变化
-            serverSelect.addEventListener('change', function() {
-                if (this.value === 'custom') {
-                    customServerGroup.style.display = 'flex';
+            // 服务器配置选择变化
+            serverConfigSelect.addEventListener('change', function() {
+                const value = this.value;
+                
+                if (value === 'custom') {
+                    customConfigGroup.style.display = 'block';
                 } else {
-                    customServerGroup.style.display = 'none';
+                    customConfigGroup.style.display = 'none';
+                }
+                
+                if (value === 'public_stun') {
+                    if (publicStunLoaded) {
+                        updateStunSelectWithPublicServers();
+                    } else {
+                        loadPublicStunServers();
+                    }
+                }
+            });
+            
+            // 信令服务器选择变化
+            signalingServerSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customSignalingGroup.style.display = 'block';
+                } else {
+                    customSignalingGroup.style.display = 'none';
                 }
             });
             
             // STUN服务器选择变化
-            stunSelect.addEventListener('change', function() {
-                if (this.value === 'custom') {
-                    customStunGroup.style.display = 'flex';
+            stunServerSelect.addEventListener('change', function() {
+                if (this.value === 'custom_stun') {
+                    customStunGroup.style.display = 'block';
                 } else {
                     customStunGroup.style.display = 'none';
                 }
             });
             
-            // 加载STUN服务器列表
-            loadStunButton.addEventListener('click', loadStunServersFromGitHub);
+            // 刷新STUN列表按钮
+            refreshStunButton.addEventListener('click', function() {
+                loadPublicStunServers();
+                if (serverConfigSelect.value === 'public_stun') {
+                    updateStunSelectWithPublicServers();
+                }
+            });
             
             // 重新连接服务器
             reconnectButton.addEventListener('click', function() {
@@ -725,47 +931,21 @@
         
         // 初始化Peer连接
         function initializePeer() {
-            const serverValue = serverSelect.value;
-            let config;
-            
-            if (serverValue === 'custom') {
-                // 解析自定义服务器地址
-                const customServer = customServerInput.value.trim();
-                if (!customServer) {
-                    alert('请输入自定义服务器地址');
-                    return;
-                }
-                
-                // 简单解析 host:port
-                const parts = customServer.split(':');
-                config = {
-                    host: parts[0],
-                    port: parts[1] ? parseInt(parts[1]) : 9000,
-                    path: '/peerjs',
-                    secure: false,
-                    description: `自定义服务器 (${customServer})`
-                };
-            } else {
-                config = serverConfigs[serverValue];
-            }
-            
-            currentServer = config.description;
-            currentServerInfo.textContent = currentServer;
+            const config = getCurrentConfig();
+            currentConfig = config.description;
+            currentServerInfo.textContent = currentConfig;
             
             // 生成随机ID
             const randomId = 'user_' + Math.random().toString(36).substring(2, 9);
             
-            // 获取STUN服务器配置
-            const iceServers = getStunConfig();
-            
             // 创建Peer实例
             peer = new Peer(randomId, {
-                host: config.host,
-                port: config.port,
-                path: config.path,
-                secure: config.secure,
+                host: config.signaling.host,
+                port: config.signaling.port,
+                path: config.signaling.path,
+                secure: config.signaling.secure,
                 config: {
-                    iceServers: iceServers
+                    iceServers: config.iceServers
                 },
                 debug: 2
             });
@@ -774,8 +954,8 @@
             setupPeerEventListeners();
             
             // 添加系统消息
-            addMessage('系统', `正在连接服务器: ${currentServer}`, false);
-            addMessage('系统', `使用STUN服务器: ${currentStun}`, false);
+            addMessage('系统', `正在连接服务器: ${config.signaling.description}`, false);
+            addMessage('系统', `使用ICE服务器: ${config.iceServers.length} 个`, false);
         }
         
         // 设置Peer事件监听器
