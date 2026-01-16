@@ -283,6 +283,64 @@
             color: #999;
         }
         
+        /* 连接请求模态框样式 */
+        .connection-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #2575fc;
+        }
+        
+        .modal-header i {
+            font-size: 1.5rem;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+            color: #555;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .modal-actions button {
+            padding: 8px 20px;
+        }
+        
+        .modal-actions button.accept {
+            background: linear-gradient(to right, #4CAF50, #45a049);
+        }
+        
+        .modal-actions button.reject {
+            background: linear-gradient(to right, #f44336, #da190b);
+        }
+        
         @media (max-width: 768px) {
             .server-row, .peer-id-row, .connection-row {
                 flex-direction: column;
@@ -367,6 +425,24 @@
             </div>
         </div>
     </div>
+    
+    <!-- 连接请求模态框 -->
+    <div class="connection-modal" id="connectionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-user-plus"></i>
+                <h3>新的连接请求</h3>
+            </div>
+            <div class="modal-body">
+                <p>用户 <strong id="requestingPeerId"></strong> 想要与您连接。</p>
+                <p>是否接受连接？</p>
+            </div>
+            <div class="modal-actions">
+                <button class="reject" id="rejectConnection">拒绝</button>
+                <button class="accept" id="acceptConnection">接受</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // 基本服务器配置
@@ -447,6 +523,7 @@
         let activeConnection = null;
         let myPeerId = '';
         let currentConfigKey = 'default';
+        let pendingConnections = {}; // 存储待处理的连接请求
         
         // DOM元素
         const serverSelect = document.getElementById('serverSelect');
@@ -461,6 +538,10 @@
         const chatList = document.getElementById('chatList');
         const connectionStatus = document.getElementById('connectionStatus');
         const statusText = document.getElementById('statusText');
+        const connectionModal = document.getElementById('connectionModal');
+        const requestingPeerIdElement = document.getElementById('requestingPeerId');
+        const rejectConnectionButton = document.getElementById('rejectConnection');
+        const acceptConnectionButton = document.getElementById('acceptConnection');
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -651,6 +732,10 @@
             
             // 文件上传
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            
+            // 连接请求模态框按钮
+            acceptConnectionButton.addEventListener('click', acceptConnection);
+            rejectConnectionButton.addEventListener('click', rejectConnection);
         }
         
         // 初始化Peer连接
@@ -690,12 +775,12 @@
                 connectButton.disabled = false;
                 
                 addMessage('系统', `已连接到服务器，您的ID是: ${id}`, false);
+                addMessage('系统', '现在其他人可以连接您，当收到连接请求时会有提示', false);
             });
             
             peer.on('connection', function(conn) {
-                // 接受连接
-                setupConnection(conn);
-                addMessage('系统', `收到来自 ${conn.peer} 的连接请求`, false);
+                // 收到连接请求，显示确认模态框
+                showConnectionRequest(conn);
             });
             
             peer.on('error', function(err) {
@@ -722,6 +807,55 @@
                 connectButton.disabled = true;
                 addMessage('系统', '与服务器的连接已断开，请重新连接', false);
             });
+        }
+        
+        // 显示连接请求确认模态框
+        function showConnectionRequest(conn) {
+            // 保存连接对象
+            pendingConnections[conn.peer] = conn;
+            
+            // 显示模态框
+            requestingPeerIdElement.textContent = conn.peer;
+            connectionModal.style.display = 'flex';
+            
+            // 添加系统消息
+            addMessage('系统', `收到来自 ${conn.peer} 的连接请求，请查看上方确认框`, false);
+        }
+        
+        // 接受连接
+        function acceptConnection() {
+            const peerId = requestingPeerIdElement.textContent;
+            const conn = pendingConnections[peerId];
+            
+            if (conn) {
+                // 设置连接事件处理
+                setupConnection(conn);
+                
+                // 添加系统消息
+                addMessage('系统', `已接受 ${peerId} 的连接请求`, false);
+                
+                // 关闭模态框并清理
+                connectionModal.style.display = 'none';
+                delete pendingConnections[peerId];
+            }
+        }
+        
+        // 拒绝连接
+        function rejectConnection() {
+            const peerId = requestingPeerIdElement.textContent;
+            const conn = pendingConnections[peerId];
+            
+            if (conn) {
+                // 关闭连接
+                conn.close();
+                
+                // 添加系统消息
+                addMessage('系统', `已拒绝 ${peerId} 的连接请求`, false);
+                
+                // 关闭模态框并清理
+                connectionModal.style.display = 'none';
+                delete pendingConnections[peerId];
+            }
         }
         
         // 连接到其他Peer
@@ -757,6 +891,14 @@
                 messageInput.focus();
                 
                 addMessage('系统', `已成功连接到 ${conn.peer}`, false);
+                
+                // 发送欢迎消息
+                conn.send({
+                    type: 'message',
+                    content: '连接已建立，可以开始聊天了！'
+                });
+                
+                addMessage('我', '连接已建立，可以开始聊天了！', true);
             });
             
             conn.on('data', function(data) {
