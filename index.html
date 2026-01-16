@@ -54,16 +54,14 @@
             background-color: #f0f5ff;
             padding: 15px 20px;
             border-bottom: 1px solid #ddd;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
         }
         
-        .server-section {
+        .server-row {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
             align-items: center;
+            margin-bottom: 15px;
         }
         
         .server-select-group {
@@ -81,18 +79,18 @@
         
         select {
             width: 100%;
-            padding: 8px 12px;
+            padding: 10px 12px;
             border: 1px solid #6a11cb;
             border-radius: 8px;
             background: white;
             font-size: 0.95rem;
         }
         
-        .peer-id-section {
+        .peer-id-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            flex: 1;
+            margin-bottom: 15px;
         }
         
         .peer-id-label {
@@ -103,7 +101,7 @@
         .peer-id {
             font-weight: bold;
             background: #e6eeff;
-            padding: 8px 15px;
+            padding: 10px 15px;
             border-radius: 20px;
             font-family: monospace;
             font-size: 1rem;
@@ -112,15 +110,15 @@
             word-break: break-all;
         }
         
-        .connection-section {
+        .connection-row {
             display: flex;
             gap: 10px;
             align-items: center;
         }
         
-        .connection-section input {
+        .connection-row input {
             flex: 1;
-            padding: 8px 15px;
+            padding: 10px 15px;
             border: 1px solid #6a11cb;
             border-radius: 20px;
         }
@@ -129,7 +127,7 @@
             background: linear-gradient(to right, #2575fc, #6a11cb);
             color: white;
             border: none;
-            padding: 8px 20px;
+            padding: 10px 20px;
             border-radius: 20px;
             cursor: pointer;
             font-weight: 600;
@@ -149,18 +147,11 @@
             box-shadow: none;
         }
         
-        button.small {
-            padding: 6px 15px;
-            font-size: 0.9rem;
-        }
-        
-        .status-section {
+        .status-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 15px;
-            background: #e8f4ff;
-            border-radius: 10px;
+            padding: 10px 0;
         }
         
         .status-indicator {
@@ -293,20 +284,12 @@
         }
         
         @media (max-width: 768px) {
-            .server-section {
-                flex-direction: column;
-            }
-            
-            .server-select-group, .peer-id-section {
-                width: 100%;
-            }
-            
-            .connection-section {
+            .server-row, .peer-id-row, .connection-row {
                 flex-direction: column;
                 width: 100%;
             }
             
-            .connection-section input {
+            .server-select-group, .peer-id, .connection-row input {
                 width: 100%;
             }
         }
@@ -316,11 +299,11 @@
     <div class="container">
         <header>
             <h1><i class="fas fa-comments"></i> PeerJS 聊天室</h1>
-            <p>简单的P2P聊天 - 选择服务器配置即可开始</p>
+            <p>选择一个服务器配置即可开始P2P聊天</p>
         </header>
         
         <div class="control-panel">
-            <div class="server-section">
+            <div class="server-row">
                 <div class="server-select-group">
                     <label class="server-select-label">服务器配置</label>
                     <select id="serverSelect">
@@ -329,28 +312,28 @@
                         <option value="official2">官方服务器2 + Google STUN</option>
                         <option value="official3">官方服务器3 + Google STUN</option>
                         <option value="official4">官方服务器4 + Google STUN</option>
-                        <option value="public_stun">使用公共STUN服务器列表</option>
+                        <option value="loading">正在加载公共STUN服务器列表...</option>
                     </select>
-                </div>
-                
-                <div class="peer-id-section">
-                    <span class="peer-id-label">您的ID:</span>
-                    <div class="peer-id" id="myPeerId">等待连接...</div>
                 </div>
             </div>
             
-            <div class="connection-section">
+            <div class="peer-id-row">
+                <span class="peer-id-label">您的ID:</span>
+                <div class="peer-id" id="myPeerId">等待连接服务器...</div>
+                <div class="status-indicator disconnected" id="connectionStatus"></div>
+                <span id="statusText">未连接</span>
+            </div>
+            
+            <div class="connection-row">
                 <input type="text" id="remotePeerId" placeholder="输入对方ID进行连接">
                 <button id="connectButton" disabled>连接</button>
                 <button id="disconnectButton" disabled>断开连接</button>
-                <button id="reconnectButton" class="small">重新连接</button>
+                <button id="reconnectButton">重新连接</button>
             </div>
             
-            <div class="status-section">
-                <div class="status-indicator disconnected" id="connectionStatus"></div>
-                <span id="statusText">未连接</span>
-                <span style="margin-left: auto; font-size: 0.85rem; color: #666;" id="serverInfo">
-                    当前: 默认配置
+            <div class="status-row">
+                <span style="font-size: 0.85rem; color: #666;">
+                    当前配置: <span id="currentConfig">默认配置</span>
                 </span>
             </div>
         </div>
@@ -386,8 +369,8 @@
     </div>
 
     <script>
-        // 服务器配置
-        const serverConfigs = {
+        // 基本服务器配置
+        const baseConfigs = {
             'default': {
                 signaling: {
                     host: '0.peerjs.com',
@@ -398,10 +381,7 @@
                 },
                 iceServers: [
                     { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:stun1.l.google.com:19302" },
-                    { urls: "stun:stun2.l.google.com:19302" },
-                    { urls: "stun:stun3.l.google.com:19302" },
-                    { urls: "stun:stun4.l.google.com:19302" }
+                    { urls: "stun:stun1.l.google.com:19302" }
                 ],
                 description: '默认配置 (官方服务器1 + Google STUN)'
             },
@@ -414,8 +394,7 @@
                     description: '官方服务器1'
                 },
                 iceServers: [
-                    { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:stun1.l.google.com:19302" }
+                    { urls: "stun:stun.l.google.com:19302" }
                 ],
                 description: '官方服务器1 + Google STUN'
             },
@@ -428,8 +407,7 @@
                     description: '官方服务器2'
                 },
                 iceServers: [
-                    { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:stun1.l.google.com:19302" }
+                    { urls: "stun:stun.l.google.com:19302" }
                 ],
                 description: '官方服务器2 + Google STUN'
             },
@@ -442,8 +420,7 @@
                     description: '官方服务器3'
                 },
                 iceServers: [
-                    { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:stun1.l.google.com:19302" }
+                    { urls: "stun:stun.l.google.com:19302" }
                 ],
                 description: '官方服务器3 + Google STUN'
             },
@@ -456,15 +433,14 @@
                     description: '官方服务器4'
                 },
                 iceServers: [
-                    { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:stun1.l.google.com:19302" }
+                    { urls: "stun:stun.l.google.com:19302" }
                 ],
                 description: '官方服务器4 + Google STUN'
             }
         };
         
-        // 公共STUN服务器列表
-        let publicStunServers = [];
+        // 扩展配置（包含公共STUN服务器）
+        let extendedConfigs = { ...baseConfigs };
         
         // 应用状态
         let peer = null;
@@ -475,7 +451,7 @@
         // DOM元素
         const serverSelect = document.getElementById('serverSelect');
         const myPeerIdElement = document.getElementById('myPeerId');
-        const serverInfo = document.getElementById('serverInfo');
+        const currentConfigElement = document.getElementById('currentConfig');
         const connectButton = document.getElementById('connectButton');
         const disconnectButton = document.getElementById('disconnectButton');
         const reconnectButton = document.getElementById('reconnectButton');
@@ -489,8 +465,7 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
-            loadPublicStunServers(); // 预加载公共STUN服务器列表
-            initializePeer(); // 初始化Peer连接
+            loadPublicStunServers(); // 加载公共STUN服务器列表
         });
         
         // 从GitHub加载公共STUN服务器列表
@@ -502,11 +477,19 @@
                 }
                 
                 const text = await response.text();
-                publicStunServers = parseStunServers(text);
-                console.log(`已加载 ${publicStunServers.length} 个公共STUN服务器`);
+                const stunServers = parseStunServers(text);
+                
+                // 添加公共STUN服务器配置到列表中
+                addPublicStunConfigs(stunServers);
+                
+                // 初始化Peer连接
+                initializePeer();
                 
             } catch (error) {
                 console.error('加载公共STUN服务器失败:', error);
+                // 如果加载失败，仍然初始化Peer连接（使用默认配置）
+                initializePeer();
+                addMessage('系统', '加载公共STUN服务器失败，使用默认配置', false);
             }
         }
         
@@ -534,61 +517,99 @@
             return servers;
         }
         
+        // 添加公共STUN服务器配置到列表中
+        function addPublicStunConfigs(stunServers) {
+            // 清空下拉列表（除了默认选项）
+            serverSelect.innerHTML = '';
+            
+            // 添加基础配置
+            serverSelect.appendChild(new Option('默认配置 (官方服务器1 + Google STUN)', 'default'));
+            serverSelect.appendChild(new Option('官方服务器1 + Google STUN', 'official1'));
+            serverSelect.appendChild(new Option('官方服务器2 + Google STUN', 'official2'));
+            serverSelect.appendChild(new Option('官方服务器3 + Google STUN', 'official3'));
+            serverSelect.appendChild(new Option('官方服务器4 + Google STUN', 'official4'));
+            
+            // 添加分隔线
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '────────── 公共STUN服务器 ──────────';
+            serverSelect.appendChild(separator);
+            
+            // 添加公共STUN服务器配置（每个信令服务器 + 前5个公共STUN服务器）
+            const maxStunServers = Math.min(stunServers.length, 5);
+            const signalingServers = [
+                { id: '0.peerjs.com', desc: '官方服务器1' },
+                { id: '1.peerjs.com', desc: '官方服务器2' },
+                { id: '2.peerjs.com', desc: '官方服务器3' },
+                { id: '3.peerjs.com', desc: '官方服务器4' }
+            ];
+            
+            // 为每个信令服务器添加公共STUN配置
+            signalingServers.forEach((signaling, sigIndex) => {
+                for (let i = 0; i < maxStunServers; i++) {
+                    const stun = stunServers[i];
+                    const configId = `public_${sigIndex}_${i}`;
+                    
+                    // 创建配置
+                    extendedConfigs[configId] = {
+                        signaling: {
+                            host: signaling.id,
+                            port: 443,
+                            path: '/',
+                            secure: true,
+                            description: signaling.desc
+                        },
+                        iceServers: [
+                            { urls: stun.url }
+                        ],
+                        description: `${signaling.desc} + ${stun.host}:${stun.port}`
+                    };
+                    
+                    // 添加到下拉列表
+                    serverSelect.appendChild(new Option(
+                        `${signaling.desc} + STUN:${stun.host}:${stun.port}`,
+                        configId
+                    ));
+                }
+            });
+            
+            // 添加更多选项的分隔线
+            if (stunServers.length > 5) {
+                const moreSeparator = document.createElement('option');
+                moreSeparator.disabled = true;
+                moreSeparator.textContent = `...还有 ${stunServers.length - 5} 个公共STUN服务器`;
+                serverSelect.appendChild(moreSeparator);
+            }
+            
+            console.log(`已添加 ${signalingServers.length * maxStunServers} 个公共STUN配置`);
+        }
+        
         // 获取当前配置
         function getCurrentConfig() {
             const selected = serverSelect.value;
             currentConfigKey = selected;
             
-            // 如果是预设配置
-            if (serverConfigs[selected]) {
-                const config = serverConfigs[selected];
-                serverInfo.textContent = `当前: ${config.description}`;
-                return config;
-            }
-            
-            // 如果是公共STUN配置
-            if (selected === 'public_stun') {
-                // 随机选择3个公共STUN服务器
-                let selectedStunServers = [];
-                if (publicStunServers.length > 0) {
-                    // 随机选择最多3个服务器
-                    const shuffled = [...publicStunServers].sort(() => 0.5 - Math.random());
-                    selectedStunServers = shuffled.slice(0, 3).map(server => ({ urls: server.url }));
-                } else {
-                    // 如果还没加载完，使用Google STUN作为后备
-                    selectedStunServers = [
-                        { urls: "stun:stun.l.google.com:19302" },
-                        { urls: "stun:stun1.l.google.com:19302" }
-                    ];
-                }
-                
-                const config = {
-                    signaling: {
-                        host: '0.peerjs.com',
-                        port: 443,
-                        path: '/',
-                        secure: true,
-                        description: '官方服务器1'
-                    },
-                    iceServers: selectedStunServers,
-                    description: '公共STUN配置'
-                };
-                
-                serverInfo.textContent = `当前: 公共STUN配置 (${selectedStunServers.length}个STUN服务器)`;
+            // 如果配置存在，返回该配置
+            if (extendedConfigs[selected]) {
+                const config = extendedConfigs[selected];
+                currentConfigElement.textContent = config.description;
                 return config;
             }
             
             // 默认返回default配置
-            const config = serverConfigs.default;
-            serverInfo.textContent = `当前: ${config.description}`;
+            const config = extendedConfigs.default;
+            currentConfigElement.textContent = config.description;
             return config;
         }
         
         // 设置事件监听器
         function setupEventListeners() {
-            // 服务器选择变化
+            // 服务器选择变化 - 重新连接
             serverSelect.addEventListener('change', function() {
-                // 不需要立即重新连接，等用户点击"重新连接"按钮
+                if (peer) {
+                    peer.destroy();
+                }
+                initializePeer();
             });
             
             // 重新连接服务器
@@ -656,6 +677,7 @@
             
             // 添加系统消息
             addMessage('系统', `正在连接服务器: ${config.signaling.description}`, false);
+            addMessage('系统', `STUN服务器: ${config.iceServers[0].urls}`, false);
         }
         
         // 设置Peer事件监听器
